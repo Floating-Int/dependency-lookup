@@ -53,7 +53,7 @@ class Program:
         self.builtin_files = sys.builtin_module_names
         self.builtin_modules = os.listdir(self.path_builtin_modules)
         self.site_packages = os.listdir(self.path_site_packages)
-        self.locations = {}  # {path: lib} pairs
+        self.locations = {}  # {path: [libs, ...]} pairs
         # for path in sys.path:
         #     self.locations[path] = []
         #     if os.path.isdir(path):

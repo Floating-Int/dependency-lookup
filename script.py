@@ -1,23 +1,24 @@
+import time
 import sys
 import os
 import ast
-import importlib
 from distutils.sysconfig import get_python_lib  # get pip package path
 
 
 class ImportFinder(ast.NodeVisitor):
     def __init__(self):
-        self.imports = []
+        # unique imports
+        self.imports = set()
 
     # @override
     def visit_Import(self, node):
         for alias in node.names:
-            self.imports.append(alias.name)
+            self.imports.add(alias.name)
 
     # @override
     def visit_ImportFrom(self, node):
         for alias in node.names:
-            self.imports.append(node.module)
+            self.imports.add(node.module)
 
     @classmethod
     def parse_imports(cls, source):
@@ -58,7 +59,7 @@ class Program:
             self.locations[path] = []
             if os.path.isdir(path):
                 self.locations[path] += os.listdir(path)  # add list
-        self.results = []
+        self.results = set()
         # print("===")
         # print(*self.builtin_files, sep="\n")
         # print("===")
@@ -73,55 +74,69 @@ class Program:
 
     def run(self):
         depth = 0
-        relpath = "."
-        self.recursive(self.fpath, relpath, depth)
+        self.recursive(self.fpath, depth)
 
-    def recursive(self, fpath, relpath, depth):
+    def recursive(self, fpath, depth):
         # edit fpath each turn unless end
-        file = open(fpath, "r", errors="ignore")
-        #print("-", fpath)
+        file = open(fpath, "r", encoding="utf-8")
         source = file.read()
+        file.close()
         imports = ImportFinder.parse_imports(source)
         for lib in imports:
             if lib in self.results:
                 return
+            # self.results.add(lib)  # add to set
 
             if lib in self.builtin_files:
                 print("StdF", "-" * depth + lib)
+                self.results.add(lib)  # add to set
 
             else:
-
                 for path, libs in self.locations.items():
+
+                    # if lib module
                     if lib in libs:
-                        self.results.append(lib)  # add to list
-                        # if lib module
+                        self.results.add(lib)  # add to set
                         print("Fold", "-" * depth + lib)
-                        #print("-", path)
                         fpath = os.path.join(path, lib + "\\__init__.py")
-                        self.recursive(fpath, relpath, depth + 1)
-                        # break
-                    elif lib + ".py" in libs:
-                        self.results.append(lib)  # add to list
-                        # is lib file
-                        print("File", "-" * depth + lib)
-                        #print("-", path)
-                        fpath = os.path.join(path, lib + ".py")
-                        self.recursive(fpath, relpath, depth + 1)
+                        self.recursive(fpath, depth + 1)
                         # break
 
-            # nest recursive
-            #self.recursive(fpath, relpath, depth + 1)
-        file.close()
+                    # is lib file
+                    elif lib + ".py" in libs:
+                        self.results.add(lib)  # add to set
+                        print("File", "-" * depth + lib)
+                        fpath = os.path.join(path, lib + ".py")
+                        self.recursive(fpath, depth + 1)
+                        # break
+                    else:
+                        # relative import with nav
+                        #print("????", "-" * depth + lib)
+                        # self.results.add(lib)
+                        ...
 
 
 if __name__ == "__main__":
     # C:\Users\Knut-Olai\AppData\Local\Programs\Python\Python39\lib
     print("-- Debug start --")
-    # main()
     program = Program()
     program.run()
-    print("===")
-    print(*program.results, sep="\n")
-    # print("== Libs ==")
+    print(len(program.results))
+    # main()
+    # all_results = set()
+    # for i in range(10):
+    #     print("-- Iter", i + 1, "--")
+    #     program = Program()
+    #     program.run()
+    #     all_results = all_results.union(program.results)
+    # print("===")
+    #print("== Libs ==")
+    #print(*all_results, sep="\n")
+    # print(len(all_results))
+    #print(*program.results, sep="\n")
+    # print(len(program.results))
+    # == loging ==
+    # with open("log2.txt", "w") as f:
+    #    f.write("\n".join(program.results))
     # print(*program.results, sep="\n")
     print("-- Debug end --")

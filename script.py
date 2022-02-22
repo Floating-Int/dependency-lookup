@@ -51,14 +51,14 @@ class Program:
             os.path.isdir(path) and path.endswith("lib"))][0]
         # get content of libs
         self.builtin_files = sys.builtin_module_names
-        self.builtin_modules = os.listdir(self.path_builtin_modules)
-        self.site_packages = os.listdir(self.path_site_packages)
+        # self.builtin_modules = os.listdir(self.path_builtin_modules)
+        # self.site_packages = os.listdir(self.path_site_packages)
         self.locations = {}  # {path: [libs, ...]} pairs
-        # for path in sys.path:
-        #     self.locations[path] = []
-        #     if os.path.isdir(path):
-        #         self.locations[path] += os.listdir(path)  # add list
-        self.results = set()
+        for path in sys.path:
+            self.locations[path] = []
+            if os.path.isdir(path):
+                self.locations[path] += os.listdir(path)  # add list
+        self.results = []
         # print("===")
         # print(*self.builtin_files, sep="\n")
         # print("===")
@@ -78,69 +78,40 @@ class Program:
 
     def recursive(self, fpath, relpath, depth):
         # edit fpath each turn unless end
-        file = open(fpath, "r")
+        file = open(fpath, "r", errors="ignore")
+        #print("-", fpath)
         source = file.read()
         imports = ImportFinder.parse_imports(source)
         for lib in imports:
-            self.results.add(lib)  # add to set
+            if lib in self.results:
+                return
+
             if lib in self.builtin_files:
-                # is builtin, like 'sys' (end)
-                print(1, "-" * depth + lib)
-                continue  # don't start recursive search in 'lib'
-            elif lib in map(self.to_fname, self.builtin_modules):
-                # is site-package
-                print(2, "-" * depth + lib)
+                print("StdF", "-" * depth + lib)
+
             else:
-                # check if lib exists
-                if lib in map(self.to_fname, self.site_packages):
-                    # is builtin lib
-                    print(3, "-" * depth + lib)
-                    fpath = os.path.join(
-                        'C:\\Users\\Knut-Olai\\AppData\\Local\\Programs\\Python\\Python39\\Lib\\site-packages', lib + ".py")
-                    # print(fpath)
-                    # nest recursive
-                    #self.recursive(fpath, relpath, depth + 1)
-                else:
-                    # is relative
-                    print(4, "-" * depth + lib)
-                    lib_relpath = lib.replace(".", "\\")
-                    if os.path.isdir(os.path.join(self.cwd, relpath, lib_relpath)):
-                        # is relative file with nav
-                        # print("fold")
-                        #print(os.path.join(self.cwd, relpath, lib_relpath))
-                        # return
-                        relpath = os.path.join(relpath, lib_relpath)
-                        # os.sep.join(...) = "\\".join(...) ( str.join(...) )
-                        # elif (os.path.isdir(os.path.join(self.cwd, os.sep.join(lib.split(".")[:-1])))
-                        #       and os.path.join(self.cwd, os.sep.join(lib.split(".")[:-1])) != self.cwd + os.sep):
-                        # is relative folder with nav
-                        # print(os.path.join(
-                        #     self.cwd, os.sep.join(lib.split(".")[:-1])))
-                        # print("file")
-                        fpath = os.path.join(
-                            self.cwd,
-                            relpath,
-                            lib_relpath + "\\__init__.py"
-                        )
-                        # print("A")
-                    else:
-                        # print("B")
-                        # print(relpath)
-                        relpath = os.path.join(
-                            relpath, os.sep.join(lib.split(".")[:-1]))
-                        # print(os.sep.join(lib.split(".")[:-1]))
-                        # print(relpath)
-                        # print("file")
-                        fpath = os.path.join(
-                            self.cwd,
-                            relpath,
-                            lib_relpath + ".py"
-                        )
-                    # print(relpath)
-                    # print(fpath)
-                    # relpath = os.path.join(relpath, lib.replace(".", "\\"))
-                    # nest recursive
-                    self.recursive(fpath, relpath, depth + 1)
+
+                for path, libs in self.locations.items():
+                    if lib in libs:
+                        self.results.append(lib)  # add to list
+                        # if lib module
+                        print("Fold", "-" * depth + lib)
+                        #print("-", path)
+                        fpath = os.path.join(path, lib + "\\__init__.py")
+                        self.recursive(fpath, relpath, depth + 1)
+                        # break
+                    elif lib + ".py" in libs:
+                        self.results.append(lib)  # add to list
+                        # is lib file
+                        print("File", "-" * depth + lib)
+                        #print("-", path)
+                        fpath = os.path.join(path, lib + ".py")
+                        self.recursive(fpath, relpath, depth + 1)
+                        # break
+
+            # nest recursive
+            #self.recursive(fpath, relpath, depth + 1)
+        file.close()
 
 
 if __name__ == "__main__":
@@ -149,7 +120,8 @@ if __name__ == "__main__":
     # main()
     program = Program()
     program.run()
-    #print(*program.locations.keys(), sep="\n")
+    print("===")
+    print(*program.results, sep="\n")
     # print("== Libs ==")
     # print(*program.results, sep="\n")
     print("-- Debug end --")
